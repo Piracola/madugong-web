@@ -24,4 +24,7 @@ class ChatRequest(BaseModel):
     def check_messages_not_empty(cls, v: list[ChatMessage]) -> list[ChatMessage]:
         if not v:
             raise ValueError("Messages cannot be empty")
+        max_messages = getattr(config, 'max_messages', 50)
+        if len(v) > max_messages:
+            raise ValueError(f"Messages exceed maximum count of {max_messages}")
         return v

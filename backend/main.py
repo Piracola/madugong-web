@@ -22,7 +22,12 @@ class LimitUploadSize(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if request.method in ("POST", "PUT", "PATCH"):
             content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > self.max_size:
+            if not content_length:
+                return JSONResponse(
+                    status_code=411,
+                    content={"detail": "Content-Length required"},
+                )
+            if int(content_length) > self.max_size:
                 return JSONResponse(
                     status_code=413,
                     content={"detail": "Request body too large"},
@@ -78,19 +83,19 @@ origins = [o.strip() for o in config.cors_origins.split(",") if o.strip()] if co
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "X-API-Key", "Authorization"],
 )
 
 
 class ConfigUpdate(BaseModel):
-    openai_api_key: str | None = None
     openai_base_url: str | None = None
     answer_model: str | None = None
     critique_model: str | None = None
     max_tokens: int | None = None
     rate_limit_per_hour: int | None = None
     max_message_length: int | None = None
+    max_messages: int | None = None
     cors_origins: str | None = None
 
 
@@ -116,12 +121,14 @@ async def health():
 
 
 @app.get("/api/config")
-async def get_config(_=Depends(verify_api_key)):
+@limiter.limit("10/minute")
+async def get_config(request: Request, _=Depends(verify_api_key)):
     return config.to_safe_dict()
 
 
 @app.put("/api/config")
-async def update_config(data: ConfigUpdate, _=Depends(verify_api_key)):
+@limiter.limit("5/minute")
+async def update_config(request: Request, data: ConfigUpdate, _=Depends(verify_api_key)):
     if not config.allow_config_update:
         raise HTTPException(status_code=403, detail="Runtime config update is disabled")
     update_dict = {k: v for k, v in data.model_dump().items() if v is not None}

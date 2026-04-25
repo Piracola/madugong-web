@@ -1,5 +1,6 @@
 server {
     listen 80;
+    server_tokens off;
     server_name your-domain.com;
 
     # 强制 HTTPS 跳转（部署 HTTPS 后启用）
@@ -11,7 +12,7 @@ server {
     # 安全头
     add_header X-Content-Type-Options nosniff;
     add_header X-Frame-Options DENY;
-    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline';";
 
     # 限制请求体大小
     client_max_body_size 1m;
@@ -27,6 +28,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
 
         # SSE support
         proxy_buffering off;

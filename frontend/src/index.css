@@ -632,6 +632,41 @@ body {
   color: var(--c-white);
 }
 
+/* ============================================================
+   GITHUB LINK
+   ============================================================ */
+
+.github-link {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--c-yellow);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  color: var(--c-black);
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  z-index: 100;
+}
+
+.github-link:hover {
+  background: var(--c-purple);
+}
+
+.github-link:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.github-link svg {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     width: 200px;

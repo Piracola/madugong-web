@@ -4,7 +4,7 @@ interface SSEEvent {
   message?: string;
 }
 
-const API_KEY = localStorage.getItem('mdg_api_key') || '';
+const API_KEY = sessionStorage.getItem('mdg_api_key') || '';
 
 export async function sendChat(
   messages: { role: string; content: string }[],

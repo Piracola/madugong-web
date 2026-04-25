@@ -14,6 +14,7 @@ class Config:
     max_tokens: int = int(os.getenv("MAX_TOKENS", "4096"))
     rate_limit_per_hour: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "30"))
     max_message_length: int = int(os.getenv("MAX_MESSAGE_LENGTH", "2000"))
+    max_messages: int = int(os.getenv("MAX_MESSAGES", "50"))
     cors_origins: str = os.getenv("CORS_ORIGINS", "")
     allow_config_update: bool = os.getenv("ALLOW_CONFIG_UPDATE", "false").lower() == "true"
     api_key: str = os.getenv("API_KEY", "")
@@ -39,21 +40,28 @@ class Config:
             "max_tokens": cls.max_tokens,
             "rate_limit_per_hour": cls.rate_limit_per_hour,
             "max_message_length": cls.max_message_length,
+            "max_messages": cls.max_messages,
             "cors_origins": cls.cors_origins,
             "allow_config_update": cls.allow_config_update,
         }
 
     @classmethod
     def update_from_dict(cls, data: dict):
-        for key in ("openai_api_key", "openai_base_url",
-                    "answer_model", "critique_model", "cors_origins"):
+        for key in ("openai_base_url",
+                     "answer_model", "critique_model", "cors_origins"):
             if key in data:
                 setattr(cls, key, data[key])
-        for key in ("max_tokens", "rate_limit_per_hour", "max_message_length"):
+        for key, (lo, hi) in {
+            "max_tokens": (1, 128000),
+            "rate_limit_per_hour": (1, 10000),
+            "max_message_length": (1, 100000),
+            "max_messages": (1, 500),
+        }.items():
             if key in data:
-                setattr(cls, key, int(data[key]))
-        if "allow_config_update" in data:
-            cls.allow_config_update = bool(data["allow_config_update"])
+                val = int(data[key])
+                if val < lo or val > hi:
+                    raise ValueError(f"{key} must be between {lo} and {hi}")
+                setattr(cls, key, val)
 
 
 config = Config()

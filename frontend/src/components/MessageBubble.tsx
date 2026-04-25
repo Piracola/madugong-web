@@ -3,6 +3,17 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage } from '../types';
 
+const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:'];
+
+function safeUrlTransform(url: string): string {
+  try {
+    const parsed = new URL(url, 'http://localhost');
+    return ALLOWED_SCHEMES.includes(parsed.protocol) ? url : '';
+  } catch {
+    return '';
+  }
+}
+
 interface MessageBubbleProps {
   message: ChatMessage;
 }
@@ -64,12 +75,12 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
               </button>
               {isThinkExpanded && (
                 <div className="think-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{thinkContent}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrlTransform}>{thinkContent}</ReactMarkdown>
                 </div>
               )}
             </div>
           )}
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{mainContent}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrlTransform}>{mainContent}</ReactMarkdown>
         </>
       )}
 
