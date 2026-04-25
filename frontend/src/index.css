@@ -332,6 +332,65 @@ body {
   background: var(--c-yellow);
 }
 
+/* ---- Think chain ---- */
+
+.think-block {
+  margin-bottom: 12px;
+  border: var(--border);
+  background: var(--c-cream);
+  box-shadow: var(--shadow);
+}
+
+.think-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--c-gray-light);
+  border: none;
+  border-bottom: var(--border);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-black);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.think-toggle:hover {
+  background: var(--c-yellow);
+}
+
+.think-toggle__icon {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.think-toggle__label {
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.think-content {
+  padding: 12px;
+  font-size: 14px;
+  color: var(--c-black);
+  opacity: 0.85;
+}
+
+.think-content p {
+  margin-bottom: 8px;
+}
+
+.think-content p:last-child {
+  margin-bottom: 0;
+}
+
 /* ---- Streaming indicator ---- */
 
 .streaming-indicator {
