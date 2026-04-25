@@ -7,6 +7,7 @@ Type=simple
 WorkingDirectory=/opt/mdg/backend
 ExecStart=/opt/mdg/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
+# 建议将 .env 放在受保护的目录（如 /etc/mdg/.env），并设置权限 600
 EnvironmentFile=/opt/mdg/.env
 
 [Install]

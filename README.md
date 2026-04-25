@@ -28,6 +28,32 @@ Windows 一键启动：
 
 脚本会创建虚拟环境、安装依赖、生成 `.env` 并拉起前后端。手动启动见下方部署步骤的对应命令。
 
+## 安全注意事项
+
+部署到公网前，请务必完成以下配置：
+
+1. **设置 API Key（必须）**  
+   在 `backend/.env` 中设置 `API_KEY`，并在前端浏览器控制台执行：
+   ```js
+   localStorage.setItem('mdg_api_key', 'your-secret-key')
+   ```
+   若留空，则所有端点处于无认证状态，强烈建议生产环境启用。
+
+2. **配置 CORS（必须）**  
+   生产环境必须将 `CORS_ORIGINS` 设为实际域名（如 `https://your-domain.com`）。默认留空表示禁止所有跨域请求。
+
+3. **配置受信反向代理（推荐）**  
+   若使用 Nginx 等反向代理，设置 `TRUSTED_PROXIES=127.0.0.1`，否则 `X-Forwarded-For` 可被客户端伪造，导致限流失效。
+
+4. **关闭运行时配置修改（推荐）**  
+   保持 `ALLOW_CONFIG_UPDATE=false`（默认）。若需修改配置，直接编辑 `.env` 后重启服务。
+
+5. **保护 .env 文件权限（推荐）**  
+   生产环境建议将 `.env` 移至 `/etc/mdg/.env`，并设置权限 `chmod 600`，避免被系统其他用户读取。
+
+6. **启用 HTTPS（必须）**  
+   `deploy/nginx.conf.example` 已提供 HTTPS 配置示例。API Key 和聊天内容在 HTTP 下以明文传输，必须使用 TLS。
+
 ## VPS 部署
 
 ### 1. 准备代码与配置
@@ -36,7 +62,7 @@ Windows 一键启动：
 # 上传或 clone 到服务器
 cd /opt/mdg
 cp backend/.env.example backend/.env
-nano backend/.env   # 填入 OPENAI_API_KEY / OPENAI_BASE_URL / ANSWER_MODEL / CRITIQUE_MODEL
+nano backend/.env   # 填入 OPENAI_API_KEY / OPENAI_BASE_URL / ANSWER_MODEL / CRITIQUE_MODEL / API_KEY / CORS_ORIGINS
 ```
 
 ### 2. 后端：虚拟环境 + systemd
@@ -86,4 +112,4 @@ sudo certbot --nginx -d your-domain.com
 curl http://localhost:8000/api/health   # {"status": "ok"}
 ```
 
-浏览器访问域名或服务器 IP 即可。API Key、Base URL、模型等可在前端「设置」面板运行时修改，无需重启服务。
+浏览器访问域名或服务器 IP 即可。若启用了 `ALLOW_CONFIG_UPDATE=true` 并配置了 `API_KEY`，可在前端「设置」面板运行时修改配置，无需重启服务。

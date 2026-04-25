@@ -2,8 +2,19 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # 强制 HTTPS 跳转（部署 HTTPS 后启用）
+    # return 301 https://$server_name$request_uri;
+
     root /var/www/mdg;
     index index.html;
+
+    # 安全头
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options DENY;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+
+    # 限制请求体大小
+    client_max_body_size 1m;
 
     # SPA fallback
     location / {
@@ -21,6 +32,41 @@ server {
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
-        chunked_transfer_encoding off;
     }
 }
+
+# HTTPS 配置示例（使用 Let's Encrypt 证书）
+# server {
+#     listen 443 ssl http2;
+#     server_name your-domain.com;
+#
+#     ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#
+#     root /var/www/mdg;
+#     index index.html;
+#
+#     add_header X-Content-Type-Options nosniff;
+#     add_header X-Frame-Options DENY;
+#     add_header Content-Security-Policy "default-src 'self'; connect-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+#     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+#
+#     client_max_body_size 1m;
+#
+#     location / {
+#         try_files $uri $uri/ /index.html;
+#     }
+#
+#     location /api/ {
+#         proxy_pass http://127.0.0.1:8000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_buffering off;
+#         proxy_cache off;
+#         proxy_read_timeout 300s;
+#     }
+# }

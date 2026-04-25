@@ -4,6 +4,8 @@ interface SSEEvent {
   message?: string;
 }
 
+const API_KEY = localStorage.getItem('mdg_api_key') || '';
+
 export async function sendChat(
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
@@ -11,15 +13,22 @@ export async function sendChat(
   onError: (err: string) => void,
 ) {
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (API_KEY) {
+      headers['X-API-Key'] = API_KEY;
+    }
+
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ messages }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
         onError('请求过于频繁，请稍后再试');
+      } else if (response.status === 401 || response.status === 403) {
+        onError('API Key 无效或未提供');
       } else {
         onError(`HTTP ${response.status}`);
       }
@@ -91,4 +100,28 @@ export async function sendChat(
   } catch (err) {
     onError(err instanceof Error ? err.message : 'Network error');
   }
+}
+
+export async function getConfig() {
+  const headers: Record<string, string> = {};
+  if (API_KEY) {
+    headers['X-API-Key'] = API_KEY;
+  }
+  const res = await fetch('/api/config', { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function updateConfig(data: Record<string, unknown>) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (API_KEY) {
+    headers['X-API-Key'] = API_KEY;
+  }
+  const res = await fetch('/api/config', {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }

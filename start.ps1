@@ -53,7 +53,7 @@ if (-not (Test-Path $NodeModules)) {
 # ── 启动 ───────────────────────────────────────
 Write-Host ""
 Write-Host "[*] 启动后端 (localhost:8000) ..." -ForegroundColor Green
-$backendJob = Start-Process -FilePath $VenvPython -ArgumentList "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000" -WorkingDirectory $BackendDir -PassThru
+$backendJob = Start-Process -FilePath $VenvPython -ArgumentList "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000" -WorkingDirectory $BackendDir -PassThru
 
 Start-Sleep -Seconds 3
 

@@ -13,10 +13,11 @@ class LLMRouter:
         self._init_client()
 
     def _init_client(self):
+        # 使用 SDK 内置重试（max_retries=3），与手动重试保持一致
         self.openai = AsyncOpenAI(
             api_key=config.openai_api_key,
             base_url=config.openai_base_url,
-            max_retries=0,
+            max_retries=3,
             timeout=120,
         )
 
