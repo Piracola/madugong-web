@@ -1,0 +1,13 @@
+[Unit]
+Description=MDG Chat API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mdg/backend
+ExecStart=/opt/mdg/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=always
+EnvironmentFile=/opt/mdg/.env
+
+[Install]
+WantedBy=multi-user.target
