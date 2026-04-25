@@ -7,6 +7,13 @@ class ChatMessage(BaseModel):
     role: str
     content: str
 
+    @field_validator('role')
+    @classmethod
+    def check_role(cls, v: str) -> str:
+        if v not in ('user', 'assistant'):
+            raise ValueError("Role must be 'user' or 'assistant'")
+        return v
+
     @field_validator('content')
     @classmethod
     def check_content_length(cls, v: str) -> str:

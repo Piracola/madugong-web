@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -61,7 +63,7 @@ def verify_api_key(request: Request) -> None:
     provided = request.headers.get("X-API-Key", "")
     if not provided:
         raise HTTPException(status_code=401, detail="Missing API Key")
-    if provided != config.api_key:
+    if not hmac.compare_digest(provided, config.api_key):
         raise HTTPException(status_code=403, detail="Invalid API Key")
 
 
