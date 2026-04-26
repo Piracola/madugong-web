@@ -62,13 +62,17 @@ button {
 .app-shell {
   display: grid;
   grid-template-columns: 308px minmax(0, 1fr);
+  height: 100dvh;
   min-height: 100dvh;
+  overflow: hidden;
   background: var(--main-bg);
 }
 
 .app-sidebar {
   position: relative;
   z-index: 3;
+  min-height: 0;
+  overflow: hidden;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
 }
@@ -81,11 +85,14 @@ button {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   background: #ffffff;
 }
 
 .topbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -124,6 +131,7 @@ button {
 
 .conversation-shell {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   overflow: hidden;
@@ -131,8 +139,10 @@ button {
 
 .chat-main {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 24px 24px;
   background: #ffffff;
 }
@@ -180,6 +190,7 @@ button {
   width: min(900px, 100%);
   margin: 0 auto;
   padding: 16px 0;
+  min-width: 0;
 }
 
 .message-row--user {
@@ -189,8 +200,11 @@ button {
 
 .message {
   max-width: min(760px, 100%);
+  min-width: 0;
   color: var(--text);
   font-size: 16px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message--assistant {
@@ -222,6 +236,7 @@ button {
 .message-body,
 .think-content,
 .message-error {
+  min-width: 0;
   color: var(--text);
   font-size: 16px;
 }
@@ -286,6 +301,7 @@ button {
 .message pre {
   margin: 14px 0;
   padding: 16px 18px;
+  max-width: 100%;
   border-radius: 16px;
   background: #111827;
   color: #f9fafb;
@@ -359,6 +375,7 @@ button {
 }
 
 .composer-dock {
+  flex: 0 0 auto;
   padding: 0 24px 24px;
   background: #ffffff;
 }
@@ -437,7 +454,8 @@ button {
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   padding: 12px 8px;
 }
 
@@ -537,6 +555,7 @@ button {
 }
 
 .sidebar-footer {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   padding: 10px 12px 4px;
@@ -613,7 +632,7 @@ button {
 
 @media (max-width: 760px) {
   body {
-    overflow: auto;
+    overflow: hidden;
   }
 
   .topbar {
