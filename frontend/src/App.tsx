@@ -8,8 +8,6 @@ import type { ChatMessage, ChatSession } from './types';
 const STORAGE_KEY = 'mdg_chat_sessions';
 const MAX_SESSIONS = 50;
 
-const API_KEY_REQUIRED_KEY = 'mdg_api_key_required';
-
 let nextId = 0;
 
 function generateId() {
@@ -48,9 +46,6 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(loadSessions);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [apiKeyRequired, setApiKeyRequired] = useState(
-    () => sessionStorage.getItem(API_KEY_REQUIRED_KEY) === 'true',
-  );
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
@@ -187,10 +182,6 @@ export default function App() {
         setIsStreaming(false);
       },
       (err: string) => {
-        if (err.includes('API Key')) {
-          setApiKeyRequired(true);
-          sessionStorage.setItem(API_KEY_REQUIRED_KEY, 'true');
-        }
         setSessions(prev =>
           prev.map(s =>
             s.id === targetSessionId
@@ -225,12 +216,6 @@ export default function App() {
           <h1 className="app-title">马督工</h1>
           <span className="doc-label">文档-001-R · 机密</span>
         </header>
-
-        {apiKeyRequired && (
-          <div className="api-key-banner">
-            服务端要求 API Key 认证，请在左侧栏「设置 API Key」中填入密钥后重试。
-          </div>
-        )}
 
         <main
           className="chat-main"

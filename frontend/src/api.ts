@@ -4,25 +4,6 @@ interface SSEEvent {
   message?: string;
 }
 
-const STORAGE_KEY = 'mdg_api_key';
-
-export function getApiKey(): string {
-  return sessionStorage.getItem(STORAGE_KEY) || '';
-}
-
-export function setApiKey(key: string) {
-  if (key) {
-    sessionStorage.setItem(STORAGE_KEY, key);
-  } else {
-    sessionStorage.removeItem(STORAGE_KEY);
-  }
-}
-
-function authHeaders(): Record<string, string> {
-  const key = getApiKey();
-  return key ? { 'X-API-Key': key } : {};
-}
-
 export async function sendChat(
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
@@ -32,7 +13,6 @@ export async function sendChat(
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...authHeaders(),
     };
 
     const response = await fetch('/api/chat', {
@@ -44,8 +24,6 @@ export async function sendChat(
     if (!response.ok) {
       if (response.status === 429) {
         onError('请求过于频繁，请稍后再试');
-      } else if (response.status === 401 || response.status === 403) {
-        onError('API Key 无效或未提供');
       } else {
         onError(`HTTP ${response.status}`);
       }
@@ -120,7 +98,7 @@ export async function sendChat(
 }
 
 export async function getConfig() {
-  const res = await fetch('/api/config', { headers: authHeaders() });
+  const res = await fetch('/api/config');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -128,7 +106,6 @@ export async function getConfig() {
 export async function updateConfig(data: Record<string, unknown>) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...authHeaders(),
   };
   const res = await fetch('/api/config', {
     method: 'PUT',

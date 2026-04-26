@@ -17,7 +17,6 @@ class Config:
     max_messages: int = int(os.getenv("MAX_MESSAGES", "50"))
     cors_origins: str = os.getenv("CORS_ORIGINS", "")
     allow_config_update: bool = os.getenv("ALLOW_CONFIG_UPDATE", "false").lower() == "true"
-    api_key: str = os.getenv("API_KEY", "")
     trusted_proxies: str = os.getenv("TRUSTED_PROXIES", "")
 
     @classmethod

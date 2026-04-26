@@ -1,6 +1,6 @@
-import hmac
+import os
 
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -54,17 +54,6 @@ def get_client_ip(request: Request) -> str:
         # 取最左侧的原始客户端 IP
         return xff.split(",")[0].strip()
     return client_host
-
-
-def verify_api_key(request: Request) -> None:
-    """验证 API Key；若未配置 API_KEY 则跳过认证（向后兼容）"""
-    if not config.api_key:
-        return
-    provided = request.headers.get("X-API-Key", "")
-    if not provided:
-        raise HTTPException(status_code=401, detail="Missing API Key")
-    if not hmac.compare_digest(provided, config.api_key):
-        raise HTTPException(status_code=403, detail="Invalid API Key")
 
 
 def get_dynamic_rate_limit() -> str:
@@ -124,13 +113,13 @@ async def health():
 
 @app.get("/api/config")
 @limiter.limit("10/minute")
-async def get_config(request: Request, _=Depends(verify_api_key)):
+async def get_config(request: Request):
     return config.to_safe_dict()
 
 
 @app.put("/api/config")
 @limiter.limit("5/minute")
-async def update_config(request: Request, data: ConfigUpdate, _=Depends(verify_api_key)):
+async def update_config(request: Request, data: ConfigUpdate):
     if not config.allow_config_update:
         raise HTTPException(status_code=403, detail="Runtime config update is disabled")
     update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -141,7 +130,7 @@ async def update_config(request: Request, data: ConfigUpdate, _=Depends(verify_a
 
 @app.post("/api/chat")
 @limiter.limit(get_dynamic_rate_limit)
-async def chat(request: Request, req: ChatRequest, _=Depends(verify_api_key)):
+async def chat(request: Request, req: ChatRequest):
     messages = [m.model_dump() for m in req.messages]
     return StreamingResponse(
         process_chat(messages),
