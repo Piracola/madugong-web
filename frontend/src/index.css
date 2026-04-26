@@ -667,9 +667,67 @@ body {
   flex-shrink: 0;
 }
 
+.api-key-banner {
+  padding: 10px 20px;
+  background: var(--c-yellow);
+  color: var(--c-black);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  border-bottom: var(--border);
+}
+
 @media (max-width: 768px) {
   .sidebar {
     width: 200px;
   }
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: var(--border);
+}
+
+.sidebar-footer summary {
+  font-size: 12px;
+  color: var(--c-black);
+  cursor: pointer;
+  padding: 4px 0;
+  opacity: 0.7;
+}
+
+.sidebar-footer summary:hover {
+  opacity: 1;
+}
+
+.api-key-input {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.api-key-input input {
+  flex: 1;
+  padding: 6px 8px;
+  border: var(--border);
+  background: var(--c-white);
+  font-size: 12px;
+  font-family: monospace;
+  min-width: 0;
+}
+
+.api-key-input button {
+  padding: 6px 12px;
+  border: var(--border);
+  background: var(--c-yellow);
+  color: var(--c-black);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.api-key-input button:hover {
+  background: var(--c-purple);
 }
 

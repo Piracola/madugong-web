@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { getApiKey, setApiKey } from '../api';
 import type { ChatSession } from '../types';
 
 interface SidebarProps {
@@ -15,6 +17,15 @@ export default function Sidebar({
   onNewSession,
   onDeleteSession,
 }: SidebarProps) {
+  const savedKey = getApiKey();
+  const [keyInput, setKeyInput] = useState(savedKey);
+  const [keySaved, setKeySaved] = useState(!!savedKey);
+
+  const handleSaveKey = () => {
+    setApiKey(keyInput.trim());
+    setKeySaved(!!keyInput.trim());
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -44,6 +55,20 @@ export default function Sidebar({
           </li>
         ))}
       </ul>
+      <div className="sidebar-footer">
+        <details>
+          <summary>{keySaved ? 'API Key 已设置' : '设置 API Key'}</summary>
+          <div className="api-key-input">
+            <input
+              type="password"
+              value={keyInput}
+              onChange={e => { setKeyInput(e.target.value); setKeySaved(false); }}
+              placeholder="输入 API Key"
+            />
+            <button onClick={handleSaveKey}>保存</button>
+          </div>
+        </details>
+      </div>
     </aside>
   );
 }

@@ -4,7 +4,24 @@ interface SSEEvent {
   message?: string;
 }
 
-const API_KEY = sessionStorage.getItem('mdg_api_key') || '';
+const STORAGE_KEY = 'mdg_api_key';
+
+export function getApiKey(): string {
+  return sessionStorage.getItem(STORAGE_KEY) || '';
+}
+
+export function setApiKey(key: string) {
+  if (key) {
+    sessionStorage.setItem(STORAGE_KEY, key);
+  } else {
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const key = getApiKey();
+  return key ? { 'X-API-Key': key } : {};
+}
 
 export async function sendChat(
   messages: { role: string; content: string }[],
@@ -13,10 +30,10 @@ export async function sendChat(
   onError: (err: string) => void,
 ) {
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (API_KEY) {
-      headers['X-API-Key'] = API_KEY;
-    }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    };
 
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -103,20 +120,16 @@ export async function sendChat(
 }
 
 export async function getConfig() {
-  const headers: Record<string, string> = {};
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
-  }
-  const res = await fetch('/api/config', { headers });
+  const res = await fetch('/api/config', { headers: authHeaders() });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 export async function updateConfig(data: Record<string, unknown>) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
-  }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...authHeaders(),
+  };
   const res = await fetch('/api/config', {
     method: 'PUT',
     headers,
