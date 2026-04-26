@@ -13,4 +13,6 @@ export interface ChatSession {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  ownerId: string;
+  isLocked: boolean;
 }

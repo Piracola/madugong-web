@@ -131,6 +131,12 @@ async def update_config(request: Request, data: ConfigUpdate):
 @app.post("/api/chat")
 @limiter.limit(get_dynamic_rate_limit)
 async def chat(request: Request, req: ChatRequest):
+    if len(req.messages) != 1 or any(message.role != "user" for message in req.messages):
+        raise HTTPException(
+            status_code=400,
+            detail="每个历史记录仅允许进行一轮对话，请新建对话后再提问",
+        )
+
     messages = [m.model_dump() for m in req.messages]
     return StreamingResponse(
         process_chat(messages),

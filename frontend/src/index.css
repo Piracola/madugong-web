@@ -146,6 +146,15 @@ body {
   background: var(--c-yellow);
 }
 
+.chat-status-banner {
+  padding: 12px 24px;
+  border-top: var(--border);
+  background: var(--c-yellow);
+  color: var(--c-black);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
 /* ============================================================
    EMPTY STATE
    ============================================================ */
@@ -601,6 +610,19 @@ body {
   background: var(--c-purple);
 }
 
+.session-item--locked {
+  border-left: 6px solid var(--c-black);
+}
+
+.session-item--readonly {
+  background: var(--c-gray-light);
+}
+
+.session-content {
+  min-width: 0;
+  flex: 1;
+}
+
 .session-title {
   font-size: 14px;
   font-weight: 700;
@@ -608,6 +630,33 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.session-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border: 2px solid var(--c-black);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: var(--c-white);
+}
+
+.session-badge--readonly {
+  background: var(--c-gray);
+}
+
+.session-badge--locked {
+  background: var(--c-yellow);
 }
 
 .session-delete {
@@ -630,6 +679,12 @@ body {
 .session-delete:hover {
   background: #ff4444;
   color: var(--c-white);
+}
+
+.session-delete:disabled {
+  background: var(--c-gray);
+  color: #666;
+  cursor: not-allowed;
 }
 
 /* ============================================================

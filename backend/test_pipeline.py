@@ -16,32 +16,18 @@ sys.path.insert(0, ".")
 
 @pytest.fixture
 def mock_llm():
-    """Mock LLM router，模拟一个耗时 5 秒的 LLM 调用"""
-    async def fake_chat_completion(system_prompt, messages, model, stream=False, json_mode=False, max_tokens=None):
-        # 模拟 LLM 延迟
-        await asyncio.sleep(2)
-        if json_mode:
-            # critique agent 期望 JSON 响应
-            return json.dumps({
-                "corrections": [{"rule": "测试规则", "original": "原文", "corrected": "修正"}],
-                "corrected_text": "这是修正后的回答文本，用于测试流式输出。",
-            }, ensure_ascii=False)
-        # answer agent 期望纯文本
-        return "这是初始回答的草稿文本。"
-
-    with patch("agents.answer_agent.generate_answer", new_callable=AsyncMock) as mock_answer, \
-         patch("agents.critique_agent.critique_and_correct", new_callable=AsyncMock) as mock_critique:
+    """Mock 两个 agent，模拟当前纯文本 SSE 协议。"""
+    with patch("orchestrator.generate_answer", new_callable=AsyncMock) as mock_answer, \
+         patch("orchestrator.critique_and_correct", new_callable=AsyncMock) as mock_critique:
 
         async def fake_generate_answer(messages):
-            await asyncio.sleep(2)
-            return "这是初始回答的草稿文本。"
+            await asyncio.sleep(0.05)
+            return "<think>这段思维链不应该传给审查 agent</think>\n这是初始回答的草稿文本。"
 
         async def fake_critique(user_question, draft):
-            await asyncio.sleep(2)
-            return {
-                "corrections": [{"rule": "测试规则", "original": "原文", "corrected": "修正"}],
-                "corrected_text": "这是修正后的回答文本，用于测试流式输出。",
-            }
+            await asyncio.sleep(0.05)
+            assert draft == "这是初始回答的草稿文本。"
+            return "这是修正后的回答文本，用于测试流式输出。"
 
         mock_answer.side_effect = fake_generate_answer
         mock_critique.side_effect = fake_critique
@@ -50,7 +36,7 @@ def mock_llm():
 
 @pytest.mark.asyncio
 async def test_orchestrator_streaming(mock_llm):
-    """测试 orchestrator 的 SSE 流式输出是否完整"""
+    """测试 orchestrator 的 SSE 流式输出是否完整，且不会把 think 内容送入审查阶段。"""
     from orchestrator import process_chat
 
     messages = [{"role": "user", "content": "测试问题"}]
@@ -73,15 +59,10 @@ async def test_orchestrator_streaming(mock_llm):
     types = [e["event"]["type"] for e in events]
     print(f"  事件类型序列: {types}")
 
-    assert "metadata" in types, "缺少 metadata 事件"
     assert "chunk" in types, "缺少 chunk 事件"
     assert "done" in types, "缺少 done 事件"
     assert types[-1] == "done", "done 事件应该是最后一个"
-
-    # 验证 metadata 包含 original 和 corrections
-    metadata_event = next(e["event"] for e in events if e["event"]["type"] == "metadata")
-    assert metadata_event.get("original"), "metadata 缺少 original"
-    assert metadata_event.get("corrections"), "metadata 缺少 corrections"
+    assert "error" not in types, "不应出现 error 事件"
 
     # 验证 chunks 拼接后是完整文本
     chunks = [e["event"]["content"] for e in events if e["event"]["type"] == "chunk"]
@@ -95,19 +76,27 @@ async def test_orchestrator_timing():
     """测试两个 LLM 调用都耗时较长时，keep-alive 是否正常工作"""
     from orchestrator import process_chat
 
+    real_wait_for = asyncio.wait_for
+    wait_for_calls = 0
+
     async def slow_generate_answer(messages):
-        await asyncio.sleep(35)  # 超过 30s timeout，触发 keep-alive
+        await asyncio.sleep(0.02)
         return "慢速回答"
 
     async def slow_critique(user_question, draft):
-        await asyncio.sleep(35)
-        return {
-            "corrections": [],
-            "corrected_text": "修正后的慢速回答",
-        }
+        await asyncio.sleep(0.02)
+        return "修正后的慢速回答"
+
+    async def fake_wait_for(awaitable, timeout):
+        nonlocal wait_for_calls
+        wait_for_calls += 1
+        if wait_for_calls in (1, 3):
+            raise asyncio.TimeoutError
+        return await real_wait_for(awaitable, timeout=1)
 
     with patch("orchestrator.generate_answer", side_effect=slow_generate_answer), \
-         patch("orchestrator.critique_and_correct", side_effect=slow_critique):
+         patch("orchestrator.critique_and_correct", side_effect=slow_critique), \
+         patch("orchestrator.asyncio.wait_for", side_effect=fake_wait_for):
 
         messages = [{"role": "user", "content": "测试慢速"}]
         events = []
@@ -130,7 +119,9 @@ async def test_orchestrator_timing():
         # 应该有 keep-alive status 事件
         status_events = [e for e in events if e["event"]["type"] == "status"]
         print(f"  keep-alive 事件数: {len(status_events)}")
-        assert len(status_events) >= 1, "35s 延迟应该触发至少 1 个 keep-alive"
+        assert len(status_events) >= 2, "两个阶段都应至少触发一次 keep-alive"
+        assert status_events[0]["event"]["content"] == "thinking"
+        assert status_events[1]["event"]["content"] == "analyzing"
 
         # 最终应该有 done
         assert types[-1] == "done", "最终应有 done 事件"
@@ -148,10 +139,7 @@ async def test_http_streaming():
 
     async def fast_critique(user_question, draft):
         await asyncio.sleep(0.5)
-        return {
-            "corrections": [],
-            "corrected_text": "修正后的快速回答",
-        }
+        return "修正后的快速回答"
 
     with patch("orchestrator.generate_answer", side_effect=fast_generate_answer), \
          patch("orchestrator.critique_and_correct", side_effect=fast_critique):
@@ -187,8 +175,21 @@ async def test_http_streaming():
             types = [e.get("type") for e in events]
             print(f"  事件类型: {types}")
 
-            assert "metadata" in types
+            assert "chunk" in types
             assert "done" in types
+
+
+def test_strip_think_blocks():
+    from orchestrator import strip_think_blocks
+
+    text = "<think>内部推理</think>\n答案A\n<think>再来一段</think>\n答案B"
+    stripped = strip_think_blocks(text)
+    assert "<think>" not in stripped.lower()
+    assert "答案A" in stripped
+    assert "答案B" in stripped
+
+    unterminated = "答案前缀\n<think>没有闭合"
+    assert strip_think_blocks(unterminated) == "答案前缀"
 
 
 if __name__ == "__main__":

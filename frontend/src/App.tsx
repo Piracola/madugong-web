@@ -6,12 +6,28 @@ import { sendChat } from './api';
 import type { ChatMessage, ChatSession } from './types';
 
 const STORAGE_KEY = 'mdg_chat_sessions';
+const USER_STORAGE_KEY = 'mdg_chat_user_id';
 const MAX_SESSIONS = 50;
 
 let nextId = 0;
 
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getOrCreateUserId(): string {
+  try {
+    const existingId = localStorage.getItem(USER_STORAGE_KEY);
+    if (existingId) {
+      return existingId;
+    }
+
+    const newId = globalThis.crypto?.randomUUID?.() ?? generateId();
+    localStorage.setItem(USER_STORAGE_KEY, newId);
+    return newId;
+  } catch {
+    return 'local-user';
+  }
 }
 
 function getSessionTitle(messages: ChatMessage[]): string {
@@ -22,11 +38,32 @@ function getSessionTitle(messages: ChatMessage[]): string {
   return '新对话';
 }
 
-function loadSessions(): ChatSession[] {
+function loadSessions(currentUserId: string): ChatSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((session): ChatSession => {
+          const messages = Array.isArray(session?.messages) ? session.messages : [];
+          const hasUserMessage = messages.some(
+            (message: ChatMessage) => message.role === 'user',
+          );
+          const hasPendingAssistantMessage = messages.some(
+            (message: ChatMessage) => message.role === 'assistant' && message.isStreaming === true,
+          );
+
+          return {
+            id: typeof session?.id === 'string' ? session.id : generateId(),
+            title: typeof session?.title === 'string' && session.title.trim() ? session.title : '新对话',
+            messages,
+            createdAt: typeof session?.createdAt === 'number' ? session.createdAt : Date.now(),
+            updatedAt: typeof session?.updatedAt === 'number' ? session.updatedAt : Date.now(),
+            ownerId: typeof session?.ownerId === 'string' && session.ownerId.trim() ? session.ownerId : currentUserId,
+            isLocked: session?.isLocked === true || (hasUserMessage && !hasPendingAssistantMessage),
+          };
+        });
+      }
     }
   } catch {
     // ignore
@@ -43,13 +80,22 @@ function saveSessions(sessions: ChatSession[]) {
 }
 
 export default function App() {
-  const [sessions, setSessions] = useState<ChatSession[]>(loadSessions);
+  const currentUserId = useRef(getOrCreateUserId()).current;
+  const [sessions, setSessions] = useState<ChatSession[]>(() => loadSessions(currentUserId));
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
   const messages = currentSession?.messages || [];
+  const isCurrentSessionReadOnly = Boolean(currentSession && currentSession.ownerId !== currentUserId);
+  const isCurrentSessionLocked = Boolean(currentSession?.isLocked);
+  const isInputDisabled = isStreaming || isCurrentSessionLocked || isCurrentSessionReadOnly;
+  const inputPlaceholder = isCurrentSessionReadOnly
+    ? '该历史记录不是你创建的，仅支持查看'
+    : isCurrentSessionLocked
+      ? '该历史记录已完成一轮对话，请新建对话'
+      : '输入你的消息...';
 
   useEffect(() => {
     saveSessions(sessions);
@@ -62,7 +108,9 @@ export default function App() {
   }, [messages]);
 
   const handleNewSession = useCallback(() => {
-    const emptySession = sessions.find(s => s.messages.length === 0);
+    const emptySession = sessions.find(
+      s => s.ownerId === currentUserId && s.messages.length === 0 && !s.isLocked,
+    );
     if (emptySession) {
       setCurrentSessionId(emptySession.id);
       return;
@@ -73,30 +121,33 @@ export default function App() {
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      ownerId: currentUserId,
+      isLocked: false,
     };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
-  }, [sessions]);
+  }, [currentUserId, sessions]);
 
   const handleSelectSession = useCallback((id: string) => {
     setCurrentSessionId(id);
   }, []);
 
   const handleDeleteSession = useCallback((id: string) => {
-    setSessions(prev => {
-      const filtered = prev.filter(s => s.id !== id);
-      return filtered;
-    });
-    setCurrentSessionId(prev => {
-      if (prev === id) {
-        const remaining = sessions.filter(s => s.id !== id);
-        return remaining.length > 0 ? remaining[0].id : null;
-      }
-      return prev;
-    });
-  }, [sessions]);
+    const targetSession = sessions.find(session => session.id === id);
+    if (!targetSession || targetSession.ownerId !== currentUserId) {
+      return;
+    }
+
+    const remainingSessions = sessions.filter(session => session.id !== id);
+    setSessions(remainingSessions);
+    setCurrentSessionId(prev => (prev === id ? remainingSessions[0]?.id ?? null : prev));
+  }, [currentUserId, sessions]);
 
   const handleSend = useCallback((text: string) => {
+    if (isStreaming || isCurrentSessionLocked || isCurrentSessionReadOnly) {
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: String(nextId++),
       role: 'user',
@@ -112,7 +163,7 @@ export default function App() {
     };
 
     let targetSessionId = currentSessionId;
-    let allMessages: { role: string; content: string }[];
+    const requestMessages = [{ role: userMsg.role, content: userMsg.content }];
 
     if (!targetSessionId) {
       const newSession: ChatSession = {
@@ -121,13 +172,13 @@ export default function App() {
         messages: [userMsg, assistantMsg],
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        ownerId: currentUserId,
+        isLocked: false,
       };
       targetSessionId = newSession.id;
-      allMessages = [userMsg].map(m => ({ role: m.role, content: m.content }));
       setSessions(prev => [newSession, ...prev]);
       setCurrentSessionId(newSession.id);
     } else {
-      allMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
       setSessions(prev =>
         prev.map(s =>
           s.id === targetSessionId
@@ -136,6 +187,7 @@ export default function App() {
                 messages: [...s.messages, userMsg, assistantMsg],
                 updatedAt: Date.now(),
                 title: s.title === '新对话' ? getSessionTitle([...s.messages, userMsg]) : s.title,
+                isLocked: false,
               }
             : s,
         ),
@@ -145,7 +197,7 @@ export default function App() {
     setIsStreaming(true);
 
     sendChat(
-      allMessages,
+      requestMessages,
       (chunk: string) => {
         setSessions(prev =>
           prev.map(s =>
@@ -158,6 +210,7 @@ export default function App() {
                       : m,
                   ),
                   updatedAt: Date.now(),
+                  isLocked: false,
                 }
               : s,
           ),
@@ -175,6 +228,7 @@ export default function App() {
                       : m,
                   ),
                   updatedAt: Date.now(),
+                  isLocked: true,
                 }
               : s,
           ),
@@ -193,6 +247,7 @@ export default function App() {
                       : m,
                   ),
                   updatedAt: Date.now(),
+                  isLocked: true,
                 }
               : s,
           ),
@@ -200,13 +255,14 @@ export default function App() {
         setIsStreaming(false);
       },
     );
-  }, [currentSessionId, messages]);
+  }, [currentSessionId, currentUserId, isCurrentSessionLocked, isCurrentSessionReadOnly, isStreaming]);
 
   return (
     <div className="app">
       <Sidebar
         sessions={sessions}
         currentSessionId={currentSessionId}
+        currentUserId={currentUserId}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
         onDeleteSession={handleDeleteSession}
@@ -235,7 +291,20 @@ export default function App() {
           ))}
         </main>
 
-        <ChatInput onSend={handleSend} disabled={isStreaming} />
+        {(isCurrentSessionReadOnly || isCurrentSessionLocked) && (
+          <div className="chat-status-banner" role="status" aria-live="polite">
+            {isCurrentSessionReadOnly
+              ? '该历史记录不是当前用户创建的，只允许查看，禁止删除或继续对话。'
+              : '该历史记录已完成一轮对话，当前已封锁；如需继续，请新建对话。'}
+          </div>
+        )}
+
+        <ChatInput
+          onSend={handleSend}
+          disabled={isInputDisabled}
+          isStreaming={isStreaming}
+          placeholder={inputPlaceholder}
+        />
 
         <a
           href="https://github.com/Piracola/madugong-web"

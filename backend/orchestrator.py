@@ -1,5 +1,6 @@
 import json
 import asyncio
+import re
 from typing import AsyncGenerator
 
 from agents.answer_agent import generate_answer
@@ -9,6 +10,8 @@ from agents.critique_agent import critique_and_correct
 # 用于减少 prompt injection 风险的特殊标记
 _USER_CONTENT_START = "<|USER_CONTENT|>"
 _USER_CONTENT_END = "<|END_USER_CONTENT|>"
+_THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
+_TRAILING_THINK_RE = re.compile(r"<think\b[^>]*>.*$", re.IGNORECASE | re.DOTALL)
 
 
 def sanitize_user_input(text: str) -> str:
@@ -33,6 +36,17 @@ def wrap_user_messages(messages: list[dict]) -> list[dict]:
             safe_content = f"{_USER_CONTENT_START}\n{safe_content}\n{_USER_CONTENT_END}"
         wrapped.append({"role": msg.get("role", "user"), "content": safe_content})
     return wrapped
+
+
+def strip_think_blocks(text: str) -> str:
+    """移除上游模型输出中的 <think> 思维链块，避免传入审查 agent。"""
+    if not text:
+        return text
+
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    cleaned = _TRAILING_THINK_RE.sub("", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def get_safe_error_message(exc: Exception) -> str:
@@ -85,7 +99,8 @@ async def process_chat(messages: list[dict]) -> AsyncGenerator[str, None]:
                 yield f"data: {json.dumps({'type': 'status', 'content': 'thinking'}, ensure_ascii=False)}\n\n"
 
         # Step 2: Agent 2 风格修正（同样每 30s keep-alive）
-        task = asyncio.create_task(critique_and_correct(user_question, draft))
+        critique_draft = strip_think_blocks(draft)
+        task = asyncio.create_task(critique_and_correct(user_question, critique_draft))
         while True:
             try:
                 corrected_text = await asyncio.wait_for(asyncio.shield(task), timeout=30)

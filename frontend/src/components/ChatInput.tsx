@@ -3,9 +3,16 @@ import { useRef } from 'react';
 interface ChatInputProps {
   onSend: (text: string) => void;
   disabled: boolean;
+  isStreaming?: boolean;
+  placeholder?: string;
 }
 
-export default function ChatInput({ onSend, disabled }: ChatInputProps) {
+export default function ChatInput({
+  onSend,
+  disabled,
+  isStreaming = false,
+  placeholder = '输入你的消息...',
+}: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
@@ -33,7 +40,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
     >
       <textarea
         ref={textareaRef}
-        placeholder="输入你的消息..."
+        placeholder={placeholder}
         onKeyDown={handleKeyDown}
         rows={1}
         disabled={disabled}
@@ -44,9 +51,9 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
         className="send-btn"
         type="submit"
         disabled={disabled}
-        aria-label={disabled ? '发送中，请稍候' : '发送消息'}
+        aria-label={isStreaming ? '发送中，请稍候' : disabled ? '当前对话不可继续发送' : '发送消息'}
       >
-        {disabled ? '发送中...' : '发送'}
+        {isStreaming ? '发送中...' : '发送'}
       </button>
     </form>
   );

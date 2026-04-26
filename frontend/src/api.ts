@@ -4,6 +4,25 @@ interface SSEEvent {
   message?: string;
 }
 
+async function getErrorMessage(response: Response): Promise<string> {
+  try {
+    const data = await response.json();
+    if (typeof data?.detail === 'string' && data.detail.trim()) {
+      return data.detail;
+    }
+    if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const firstDetail = data.detail[0];
+      if (typeof firstDetail?.msg === 'string' && firstDetail.msg.trim()) {
+        return firstDetail.msg;
+      }
+    }
+  } catch {
+    // ignore malformed error bodies
+  }
+
+  return `HTTP ${response.status}`;
+}
+
 export async function sendChat(
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
@@ -25,7 +44,7 @@ export async function sendChat(
       if (response.status === 429) {
         onError('请求过于频繁，请稍后再试');
       } else {
-        onError(`HTTP ${response.status}`);
+        onError(await getErrorMessage(response));
       }
       return;
     }
@@ -35,6 +54,13 @@ export async function sendChat(
     let buffer = '';
     let receivedDone = false;
     let hasError = false;
+    let doneNotified = false;
+
+    const notifyDone = () => {
+      if (doneNotified) return;
+      doneNotified = true;
+      onDone();
+    };
 
     while (true) {
       const { done, value } = await reader.read();
@@ -54,7 +80,7 @@ export async function sendChat(
             onChunk(event.content);
           } else if (event.type === 'done') {
             receivedDone = true;
-            onDone();
+            notifyDone();
           } else if (event.type === 'error') {
             hasError = true;
             onError(event.message || '后端处理出错');
@@ -90,7 +116,7 @@ export async function sendChat(
     }
 
     if (!hasError) {
-      onDone();
+      notifyDone();
     }
   } catch (err) {
     onError(err instanceof Error ? err.message : 'Network error');
