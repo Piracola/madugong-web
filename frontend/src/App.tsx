@@ -8,11 +8,19 @@ import type { ChatMessage, ChatSession } from './types';
 const STORAGE_KEY = 'mdg_chat_sessions';
 const USER_STORAGE_KEY = 'mdg_chat_user_id';
 const MAX_SESSIONS = 50;
+const MOBILE_BREAKPOINT = 960;
 
 let nextId = 0;
 
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getInitialSidebarOpen() {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+  return window.innerWidth > MOBILE_BREAKPOINT;
 }
 
 function getOrCreateUserId(): string {
@@ -31,7 +39,7 @@ function getOrCreateUserId(): string {
 }
 
 function getSessionTitle(messages: ChatMessage[]): string {
-  const firstUser = messages.find(m => m.role === 'user');
+  const firstUser = messages.find(message => message.role === 'user');
   if (firstUser) {
     return firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? '...' : '');
   }
@@ -84,26 +92,19 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(() => loadSessions(currentUserId));
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(getInitialSidebarOpen);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const currentSession = sessions.find(s => s.id === currentSessionId) || null;
+  const currentSession = sessions.find(session => session.id === currentSessionId) || null;
   const messages = currentSession?.messages || [];
-  const currentSessionTitle = currentSession?.title ?? '新对话';
   const isCurrentSessionReadOnly = Boolean(currentSession && currentSession.ownerId !== currentUserId);
   const isCurrentSessionLocked = Boolean(currentSession?.isLocked);
   const isInputDisabled = isStreaming || isCurrentSessionLocked || isCurrentSessionReadOnly;
-  const currentSessionStatus = isCurrentSessionReadOnly
-    ? '只读'
-    : isCurrentSessionLocked
-      ? '已完成'
-      : isStreaming
-        ? '生成中'
-        : '可输入';
   const inputPlaceholder = isCurrentSessionReadOnly
     ? '该历史记录不是你创建的，仅支持查看'
     : isCurrentSessionLocked
       ? '该历史记录已完成一轮对话，请新建对话'
-      : '输入你的消息...';
+      : '有问题，尽管问';
 
   useEffect(() => {
     saveSessions(sessions);
@@ -115,14 +116,36 @@ export default function App() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsSidebarOpen(!event.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  const closeSidebarOnMobile = useCallback(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
   const handleNewSession = useCallback(() => {
     const emptySession = sessions.find(
-      s => s.ownerId === currentUserId && s.messages.length === 0 && !s.isLocked,
+      session => session.ownerId === currentUserId && session.messages.length === 0 && !session.isLocked,
     );
     if (emptySession) {
       setCurrentSessionId(emptySession.id);
+      closeSidebarOnMobile();
       return;
     }
+
     const newSession: ChatSession = {
       id: generateId(),
       title: '新对话',
@@ -134,11 +157,13 @@ export default function App() {
     };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
-  }, [currentUserId, sessions]);
+    closeSidebarOnMobile();
+  }, [closeSidebarOnMobile, currentUserId, sessions]);
 
   const handleSelectSession = useCallback((id: string) => {
     setCurrentSessionId(id);
-  }, []);
+    closeSidebarOnMobile();
+  }, [closeSidebarOnMobile]);
 
   const handleDeleteSession = useCallback((id: string) => {
     const targetSession = sessions.find(session => session.id === id);
@@ -188,16 +213,16 @@ export default function App() {
       setCurrentSessionId(newSession.id);
     } else {
       setSessions(prev =>
-        prev.map(s =>
-          s.id === targetSessionId
+        prev.map(session =>
+          session.id === targetSessionId
             ? {
-                ...s,
-                messages: [...s.messages, userMsg, assistantMsg],
+                ...session,
+                messages: [...session.messages, userMsg, assistantMsg],
                 updatedAt: Date.now(),
-                title: s.title === '新对话' ? getSessionTitle([...s.messages, userMsg]) : s.title,
+                title: session.title === '新对话' ? getSessionTitle([...session.messages, userMsg]) : session.title,
                 isLocked: false,
               }
-            : s,
+            : session,
         ),
       );
     }
@@ -208,56 +233,56 @@ export default function App() {
       requestMessages,
       (chunk: string) => {
         setSessions(prev =>
-          prev.map(s =>
-            s.id === targetSessionId
+          prev.map(session =>
+            session.id === targetSessionId
               ? {
-                  ...s,
-                  messages: s.messages.map(m =>
-                    m.id === assistantMsg.id
-                      ? { ...m, content: m.content + chunk }
-                      : m,
+                  ...session,
+                  messages: session.messages.map(message =>
+                    message.id === assistantMsg.id
+                      ? { ...message, content: message.content + chunk }
+                      : message,
                   ),
                   updatedAt: Date.now(),
                   isLocked: false,
                 }
-              : s,
+              : session,
           ),
         );
       },
       () => {
         setSessions(prev =>
-          prev.map(s =>
-            s.id === targetSessionId
+          prev.map(session =>
+            session.id === targetSessionId
               ? {
-                  ...s,
-                  messages: s.messages.map(m =>
-                    m.id === assistantMsg.id
-                      ? { ...m, isStreaming: false }
-                      : m,
+                  ...session,
+                  messages: session.messages.map(message =>
+                    message.id === assistantMsg.id
+                      ? { ...message, isStreaming: false }
+                      : message,
                   ),
                   updatedAt: Date.now(),
                   isLocked: true,
                 }
-              : s,
+              : session,
           ),
         );
         setIsStreaming(false);
       },
       (err: string) => {
         setSessions(prev =>
-          prev.map(s =>
-            s.id === targetSessionId
+          prev.map(session =>
+            session.id === targetSessionId
               ? {
-                  ...s,
-                  messages: s.messages.map(m =>
-                    m.id === assistantMsg.id
-                      ? { ...m, content: err, isStreaming: false, isError: true }
-                      : m,
+                  ...session,
+                  messages: session.messages.map(message =>
+                    message.id === assistantMsg.id
+                      ? { ...message, content: err, isStreaming: false, isError: true }
+                      : message,
                   ),
                   updatedAt: Date.now(),
                   isLocked: true,
                 }
-              : s,
+              : session,
           ),
         );
         setIsStreaming(false);
@@ -266,11 +291,8 @@ export default function App() {
   }, [currentSessionId, currentUserId, isCurrentSessionLocked, isCurrentSessionReadOnly, isStreaming]);
 
   return (
-    <div className="app-shell">
-      <div className="ambient ambient--one" aria-hidden="true" />
-      <div className="ambient ambient--two" aria-hidden="true" />
-
-      <aside className="corner-card corner-card--history" aria-label="历史记录面板">
+    <div className={`app-shell${isSidebarOpen ? ' app-shell--sidebar-open' : ''}`}>
+      <aside className="app-sidebar" aria-label="历史记录面板">
         <Sidebar
           sessions={sessions}
           currentSessionId={currentSessionId}
@@ -281,31 +303,56 @@ export default function App() {
         />
       </aside>
 
-      <section className="chat-stage">
-        <div className="chat-surface">
-          <header className="chat-surface__header">
-            <div className="chat-surface__heading">
-              <span className="panel-tag">当前会话</span>
-              <h2 className="chat-surface__title">{currentSessionTitle}</h2>
-            </div>
-            <div className="chat-surface__meta" aria-label="会话信息">
-              <span>{messages.length > 0 ? `${messages.length} 条消息` : '等待开始'}</span>
-              <span>{currentSessionStatus}</span>
-            </div>
-          </header>
+      <button
+        type="button"
+        className="app-overlay"
+        aria-label="关闭侧边栏"
+        onClick={() => setIsSidebarOpen(false)}
+      />
 
-          <main
-            className="chat-main"
-            ref={chatPanelRef}
-            role="log"
-            aria-live="polite"
-            aria-label="聊天记录"
-          >
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-          </main>
+      <section className="app-main">
+        <header className="topbar">
+          <div className="topbar__left">
+            <button
+              type="button"
+              className="topbar-menu"
+              aria-label={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+              aria-expanded={isSidebarOpen}
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+            <h1 className="topbar__title">马督工</h1>
+          </div>
+        </header>
 
+        <div className="conversation-shell">
+          {messages.length === 0 ? (
+            <div className="chat-main chat-main--empty">
+              <section className="welcome-panel" aria-label="欢迎页">
+                <p className="welcome-panel__statement">
+                  一切社会现象的最终解释指向经济基础、制度结构与生产力水平，而非个人道德或文化本质。
+                </p>
+              </section>
+            </div>
+          ) : (
+            <main
+              className="chat-main"
+              ref={chatPanelRef}
+              role="log"
+              aria-live="polite"
+              aria-label="聊天记录"
+            >
+              {messages.map(message => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+            </main>
+          )}
+        </div>
+
+        <div className="composer-dock">
           {(isCurrentSessionReadOnly || isCurrentSessionLocked) && (
             <div className="chat-status-banner" role="status" aria-live="polite">
               {isCurrentSessionReadOnly

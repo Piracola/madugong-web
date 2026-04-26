@@ -20,20 +20,21 @@ export default function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <div>
-          <span className="panel-tag">对话历史</span>
-          <h2>历史记录</h2>
-        </div>
-        <button className="new-chat-btn" onClick={onNewSession}>
-          新对话
+        <button type="button" className="new-chat-btn" onClick={onNewSession}>
+          新聊天
         </button>
       </div>
+
+      <div className="sidebar-section-title">最近</div>
+
       <ul className="session-list">
         {sessions.length === 0 && (
-          <li className="session-empty">还没有对话记录，点击右上角开始第一轮提问。</li>
+          <li className="session-empty">还没有对话记录</li>
         )}
+
         {sessions.map(session => {
           const isOwner = session.ownerId === currentUserId;
+          const messageCount = session.messages.length;
 
           return (
             <li key={session.id} className="session-row">
@@ -42,20 +43,17 @@ export default function Sidebar({
                 className={[
                   'session-item',
                   session.id === currentSessionId ? 'session-item--active' : '',
-                  session.isLocked ? 'session-item--locked' : '',
-                  !isOwner ? 'session-item--readonly' : '',
                 ].filter(Boolean).join(' ')}
                 onClick={() => onSelectSession(session.id)}
               >
-                <div className="session-content">
-                  <span className="session-title">{session.title}</span>
-                  <div className="session-badges">
-                    {!isOwner && <span className="session-badge session-badge--readonly">只读</span>}
-                    {session.isLocked && <span className="session-badge session-badge--locked">已完成</span>}
-                  </div>
-                </div>
-                <span className="session-open" aria-hidden="true">↗</span>
+                <span className="session-title">{session.title}</span>
+                <span className="session-summary">
+                  {messageCount > 0 ? `${messageCount} 条消息` : '空白会话'}
+                  {!isOwner ? ' · 只读' : ''}
+                  {session.isLocked ? ' · 已完成' : ''}
+                </span>
               </button>
+
               {isOwner && (
                 <button
                   type="button"
@@ -64,13 +62,28 @@ export default function Sidebar({
                   aria-label="删除对话"
                   title="删除对话"
                 >
-                  删除
+                  ×
                 </button>
               )}
             </li>
           );
         })}
       </ul>
+
+      <div className="sidebar-footer">
+        <a
+          href="https://github.com/Piracola/madugong-web"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="github-link"
+          aria-label="打开项目 GitHub 仓库"
+          title="GitHub"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z" />
+          </svg>
+        </a>
+      </div>
     </div>
   );
 }
