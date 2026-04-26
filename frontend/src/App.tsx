@@ -88,9 +88,17 @@ export default function App() {
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
   const messages = currentSession?.messages || [];
+  const currentSessionTitle = currentSession?.title ?? '新对话';
   const isCurrentSessionReadOnly = Boolean(currentSession && currentSession.ownerId !== currentUserId);
   const isCurrentSessionLocked = Boolean(currentSession?.isLocked);
   const isInputDisabled = isStreaming || isCurrentSessionLocked || isCurrentSessionReadOnly;
+  const currentSessionStatus = isCurrentSessionReadOnly
+    ? '只读'
+    : isCurrentSessionLocked
+      ? '已完成'
+      : isStreaming
+        ? '生成中'
+        : '可输入';
   const inputPlaceholder = isCurrentSessionReadOnly
     ? '该历史记录不是你创建的，仅支持查看'
     : isCurrentSessionLocked
@@ -258,66 +266,62 @@ export default function App() {
   }, [currentSessionId, currentUserId, isCurrentSessionLocked, isCurrentSessionReadOnly, isStreaming]);
 
   return (
-    <div className="app">
-      <Sidebar
-        sessions={sessions}
-        currentSessionId={currentSessionId}
-        currentUserId={currentUserId}
-        onSelectSession={handleSelectSession}
-        onNewSession={handleNewSession}
-        onDeleteSession={handleDeleteSession}
-      />
-      <div className="app-main">
-        <header className="app-header">
-          <h1 className="app-title">马督工</h1>
-          <span className="doc-label">文档-001-R · 机密</span>
-        </header>
+    <div className="app-shell">
+      <div className="ambient ambient--one" aria-hidden="true" />
+      <div className="ambient ambient--two" aria-hidden="true" />
 
-        <main
-          className="chat-main"
-          ref={chatPanelRef}
-          role="log"
-          aria-live="polite"
-          aria-label="聊天记录"
-        >
-          {messages.length === 0 && (
-            <section className="empty-state" aria-label="空状态">
-              <h2>马督工</h2>
-              <p>输入你的问题<br />获取风格化回答</p>
-            </section>
-          )}
-          {messages.map(msg => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
-        </main>
-
-        {(isCurrentSessionReadOnly || isCurrentSessionLocked) && (
-          <div className="chat-status-banner" role="status" aria-live="polite">
-            {isCurrentSessionReadOnly
-              ? '该历史记录不是当前用户创建的，只允许查看，禁止删除或继续对话。'
-              : '该历史记录已完成一轮对话，当前已封锁；如需继续，请新建对话。'}
-          </div>
-        )}
-
-        <ChatInput
-          onSend={handleSend}
-          disabled={isInputDisabled}
-          isStreaming={isStreaming}
-          placeholder={inputPlaceholder}
+      <aside className="corner-card corner-card--history" aria-label="历史记录面板">
+        <Sidebar
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          currentUserId={currentUserId}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
+          onDeleteSession={handleDeleteSession}
         />
+      </aside>
 
-        <a
-          href="https://github.com/Piracola/madugong-web"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="github-link"
-          aria-label="GitHub"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z" />
-          </svg>
-        </a>
-      </div>
+      <section className="chat-stage">
+        <div className="chat-surface">
+          <header className="chat-surface__header">
+            <div className="chat-surface__heading">
+              <span className="panel-tag">当前会话</span>
+              <h2 className="chat-surface__title">{currentSessionTitle}</h2>
+            </div>
+            <div className="chat-surface__meta" aria-label="会话信息">
+              <span>{messages.length > 0 ? `${messages.length} 条消息` : '等待开始'}</span>
+              <span>{currentSessionStatus}</span>
+            </div>
+          </header>
+
+          <main
+            className="chat-main"
+            ref={chatPanelRef}
+            role="log"
+            aria-live="polite"
+            aria-label="聊天记录"
+          >
+            {messages.map(msg => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+          </main>
+
+          {(isCurrentSessionReadOnly || isCurrentSessionLocked) && (
+            <div className="chat-status-banner" role="status" aria-live="polite">
+              {isCurrentSessionReadOnly
+                ? '该历史记录不是当前用户创建的，只允许查看。'
+                : '该历史记录已完成一轮对话，如需继续请新建对话。'}
+            </div>
+          )}
+
+          <ChatInput
+            onSend={handleSend}
+            disabled={isInputDisabled}
+            isStreaming={isStreaming}
+            placeholder={inputPlaceholder}
+          />
+        </div>
+      </section>
     </div>
   );
 }

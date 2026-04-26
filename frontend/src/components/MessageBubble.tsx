@@ -51,11 +51,11 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       className={`message message--${isUser ? 'user' : 'assistant'}${message.isError ? ' message--error' : ''}`}
       aria-label={`${isUser ? '用户' : '助手'}消息`}
     >
-      <span className="message-badge">{isUser ? 'TX' : 'RX'}</span>
+      <span className="message-badge">{isUser ? '你' : '马督工'}</span>
 
       {message.isError ? (
         <div className="message-error">
-          <span className="error-badge">SYSTEM ERROR</span>
+          <span className="error-badge">错误</span>
           <p>{message.content}</p>
         </div>
       ) : message.isStreaming && message.content.length === 0 ? (
@@ -71,7 +71,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 aria-label={isThinkExpanded ? '收起思维链' : '展开思维链'}
               >
                 <span className="think-toggle__icon">{isThinkExpanded ? '▼' : '▶'}</span>
-                <span className="think-toggle__label">思维链</span>
+                <span className="think-toggle__label">思考过程</span>
               </button>
               {isThinkExpanded && (
                 <div className="think-content">
