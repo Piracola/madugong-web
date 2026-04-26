@@ -45,6 +45,9 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   }, []);
 
   const { thinkContent, mainContent } = parseThinkContent(message.content);
+  const reasoningContent = message.reasoning?.trim() || thinkContent;
+  const hasReasoning = Boolean(reasoningContent);
+  const isOnlyLoading = message.isStreaming && mainContent.length === 0 && !hasReasoning;
 
   return (
     <div className={`message-row message-row--${isUser ? 'user' : 'assistant'}`}>
@@ -57,14 +60,14 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <span className="error-badge">错误</span>
             <p>{message.content}</p>
           </div>
-        ) : message.isStreaming && message.content.length === 0 ? (
+        ) : isOnlyLoading ? (
           <div className="message-loading">
             <span className="streaming-indicator" aria-label="正在输入" />
             <span>正在思考中...</span>
           </div>
         ) : (
           <>
-            {thinkContent !== null && (
+            {hasReasoning && (
               <div className="think-block">
                 <button
                   type="button"
@@ -78,18 +81,25 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 {isThinkExpanded && (
                   <div className="think-content">
                     <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrlTransform}>
-                      {thinkContent}
+                      {reasoningContent}
                     </ReactMarkdown>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="message-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrlTransform}>
-                {mainContent}
-              </ReactMarkdown>
-            </div>
+            {mainContent.length > 0 ? (
+              <div className="message-body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeUrlTransform}>
+                  {mainContent}
+                </ReactMarkdown>
+              </div>
+            ) : message.isStreaming ? (
+              <div className="message-loading">
+                <span className="streaming-indicator" aria-label="正在输入" />
+                <span>正在整理最终回答...</span>
+              </div>
+            ) : null}
           </>
         )}
       </article>

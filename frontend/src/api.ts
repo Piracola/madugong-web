@@ -1,5 +1,5 @@
 interface SSEEvent {
-  type: 'chunk' | 'done' | 'error' | 'status';
+  type: 'chunk' | 'reasoning' | 'done' | 'error' | 'status';
   content?: string;
   message?: string;
 }
@@ -26,6 +26,7 @@ async function getErrorMessage(response: Response): Promise<string> {
 export async function sendChat(
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
+  onReasoning: (text: string) => void,
   onDone: () => void,
   onError: (err: string) => void,
 ) {
@@ -78,6 +79,8 @@ export async function sendChat(
           const event: SSEEvent = JSON.parse(json);
           if (event.type === 'chunk' && event.content) {
             onChunk(event.content);
+          } else if (event.type === 'reasoning' && event.content) {
+            onReasoning(event.content);
           } else if (event.type === 'done') {
             receivedDone = true;
             notifyDone();
@@ -98,6 +101,8 @@ export async function sendChat(
         const event: SSEEvent = JSON.parse(buffer.replace(/^data: /, ''));
         if (event.type === 'chunk' && event.content) {
           onChunk(event.content);
+        } else if (event.type === 'reasoning' && event.content) {
+          onReasoning(event.content);
         } else if (event.type === 'done') {
           receivedDone = true;
         } else if (event.type === 'error') {

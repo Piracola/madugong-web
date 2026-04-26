@@ -12,6 +12,7 @@ _USER_CONTENT_START = "<|USER_CONTENT|>"
 _USER_CONTENT_END = "<|END_USER_CONTENT|>"
 _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
 _TRAILING_THINK_RE = re.compile(r"<think\b[^>]*>.*$", re.IGNORECASE | re.DOTALL)
+_THINK_CAPTURE_RE = re.compile(r"<think\b[^>]*>(.*?)</think>", re.IGNORECASE | re.DOTALL)
 
 
 def sanitize_user_input(text: str) -> str:
@@ -47,6 +48,23 @@ def strip_think_blocks(text: str) -> str:
     cleaned = _TRAILING_THINK_RE.sub("", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
+
+
+def extract_think_content(text: str) -> str | None:
+    """提取模型输出中的思维链内容，用于前端折叠展示。"""
+    if not text:
+        return None
+
+    collected = [match.strip() for match in _THINK_CAPTURE_RE.findall(text) if match.strip()]
+    trailing_match = _TRAILING_THINK_RE.search(text)
+    if trailing_match and "</think>" not in trailing_match.group(0).lower():
+        trailing_content = re.sub(r"^<think\b[^>]*>", "", trailing_match.group(0), flags=re.IGNORECASE).strip()
+        if trailing_content:
+            collected.append(trailing_content)
+
+    if not collected:
+        return None
+    return "\n\n".join(collected)
 
 
 def get_safe_error_message(exc: Exception) -> str:
@@ -97,6 +115,11 @@ async def process_chat(messages: list[dict]) -> AsyncGenerator[str, None]:
                 break
             except asyncio.TimeoutError:
                 yield f"data: {json.dumps({'type': 'status', 'content': 'thinking'}, ensure_ascii=False)}\n\n"
+
+        reasoning_text = extract_think_content(draft)
+        if reasoning_text:
+            reasoning_event = {"type": "reasoning", "content": reasoning_text}
+            yield f"data: {json.dumps(reasoning_event, ensure_ascii=False)}\n\n"
 
         # Step 2: Agent 2 风格修正（同样每 30s keep-alive）
         critique_draft = strip_think_blocks(draft)

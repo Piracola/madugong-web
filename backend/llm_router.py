@@ -1,11 +1,14 @@
 import asyncio
 import random
+import re
 from typing import AsyncGenerator
 
 import openai
 from openai import AsyncOpenAI
 
 from config import config
+
+_THINK_TAG_RE = re.compile(r"<think\b[^>]*>", re.IGNORECASE)
 
 
 class LLMRouter:
@@ -64,15 +67,27 @@ class LLMRouter:
             try:
                 response = await self.openai.chat.completions.create(**kwargs)
                 collected = []
+                reasoning_collected = []
                 async for chunk in response:
                     if not chunk.choices:
                         continue
                     delta = chunk.choices[0].delta
-                    if delta and delta.content:
-                        collected.append(delta.content)
+                    if not delta:
+                        continue
+
+                    content_piece = self._normalize_delta_value(getattr(delta, "content", None))
+                    if content_piece:
+                        collected.append(content_piece)
+
+                    reasoning_piece = self._extract_reasoning_delta(delta)
+                    if reasoning_piece:
+                        reasoning_collected.append(reasoning_piece)
                 result = "".join(collected)
                 if not result.strip():
                     raise ValueError("Model returned empty content")
+                reasoning = "".join(reasoning_collected).strip()
+                if reasoning and not _THINK_TAG_RE.search(result):
+                    result = f"<think>{reasoning}</think>\n{result}"
                 return result
             except (
                 openai.RateLimitError,
@@ -153,8 +168,41 @@ class LLMRouter:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
-            if delta and delta.content:
-                yield delta.content
+            if not delta:
+                continue
+
+            content_piece = self._normalize_delta_value(getattr(delta, "content", None))
+            if content_piece:
+                yield content_piece
+
+    def _extract_reasoning_delta(self, delta) -> str:
+        for attr in ("reasoning_content", "reasoning"):
+            value = getattr(delta, attr, None)
+            normalized = self._normalize_delta_value(value)
+            if normalized:
+                return normalized
+        return ""
+
+    def _normalize_delta_value(self, value) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            parts = [self._normalize_delta_value(item) for item in value]
+            return "".join(part for part in parts if part)
+        if isinstance(value, dict):
+            for key in ("text", "content", "value"):
+                normalized = self._normalize_delta_value(value.get(key))
+                if normalized:
+                    return normalized
+            return ""
+
+        for attr in ("text", "content", "value"):
+            normalized = self._normalize_delta_value(getattr(value, attr, None))
+            if normalized:
+                return normalized
+        return ""
 
 
 router = LLMRouter()

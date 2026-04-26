@@ -60,9 +60,13 @@ async def test_orchestrator_streaming(mock_llm):
     print(f"  事件类型序列: {types}")
 
     assert "chunk" in types, "缺少 chunk 事件"
+    assert "reasoning" in types, "缺少 reasoning 事件"
     assert "done" in types, "缺少 done 事件"
     assert types[-1] == "done", "done 事件应该是最后一个"
     assert "error" not in types, "不应出现 error 事件"
+
+    reasoning_events = [e["event"]["content"] for e in events if e["event"]["type"] == "reasoning"]
+    assert reasoning_events == ["这段思维链不应该传给审查 agent"]
 
     # 验证 chunks 拼接后是完整文本
     chunks = [e["event"]["content"] for e in events if e["event"]["type"] == "chunk"]
@@ -180,16 +184,18 @@ async def test_http_streaming():
 
 
 def test_strip_think_blocks():
-    from orchestrator import strip_think_blocks
+    from orchestrator import extract_think_content, strip_think_blocks
 
     text = "<think>内部推理</think>\n答案A\n<think>再来一段</think>\n答案B"
     stripped = strip_think_blocks(text)
     assert "<think>" not in stripped.lower()
     assert "答案A" in stripped
     assert "答案B" in stripped
+    assert extract_think_content(text) == "内部推理\n\n再来一段"
 
     unterminated = "答案前缀\n<think>没有闭合"
     assert strip_think_blocks(unterminated) == "答案前缀"
+    assert extract_think_content(unterminated) == "没有闭合"
 
 
 if __name__ == "__main__":

@@ -249,6 +249,24 @@ export default function App() {
           ),
         );
       },
+      (reasoning: string) => {
+        setSessions(prev =>
+          prev.map(session =>
+            session.id === targetSessionId
+              ? {
+                  ...session,
+                  messages: session.messages.map(message =>
+                    message.id === assistantMsg.id
+                      ? { ...message, reasoning: `${message.reasoning ?? ''}${reasoning}` }
+                      : message,
+                  ),
+                  updatedAt: Date.now(),
+                  isLocked: false,
+                }
+              : session,
+          ),
+        );
+      },
       () => {
         setSessions(prev =>
           prev.map(session =>
