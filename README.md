@@ -44,3 +44,7 @@ Windows 一键启动：
 
 - [部署指南](./docs/deployment.md)
 - [注意事项](./docs/notes.md)
+
+
+## 致谢
+感谢  [Linux Do](https://linux.do/) 社区热心佬友的支持
